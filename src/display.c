@@ -1,4 +1,4 @@
-#include "lcd.h"
+#include "display.h"
 
 int fd;  // seen by all subroutines
 
@@ -101,8 +101,4 @@ void lcd_init()   {
   lcd_byte(0x28, LCD_CMD); // Data length, number of lines, font size
   lcd_byte(0x01, LCD_CMD); // Clear display
   delayMicroseconds(500);
-}
-
-void trata_interrupcao_lcd(){
-    ClrLcd(); 
 }

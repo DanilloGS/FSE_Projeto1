@@ -1,29 +1,32 @@
 #include <fcntl.h>  //Used for UART
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <termios.h>  //Used for UART
 #include <unistd.h>   //Used for UART
+
 #include "crc16.h"
+#include "gpio.h"
 #include "uart_defs.h"
 
-
 int connect_uart() {
-  int uart_filestream = -1;
-  uart_filestream = open("/dev/serial0", O_RDWR | O_NOCTTY | O_NDELAY);
-  if (uart_filestream == -1) {
-    printf("Erro - Não foi possível iniciar a UART.\n");
+  int filestream = -1;
+  char uart_file[] = "/dev/serial0";
+  filestream = open(uart_file, O_RDWR | O_NOCTTY | O_NDELAY);
+  if (filestream == -1) {
+    printf("Não foi possível iniciar o UART.\n");
   } else {
     printf("UART inicializado!\n");
   }
   struct termios options;
-  tcgetattr(uart_filestream, &options);
+  tcgetattr(filestream, &options);
   options.c_cflag = B9600 | CS8 | CLOCAL | CREAD;
   options.c_iflag = IGNPAR;
   options.c_oflag = 0;
   options.c_lflag = 0;
-  tcflush(uart_filestream, TCIFLUSH);
-  tcsetattr(uart_filestream, TCSANOW, &options);
-  return uart_filestream;
+  tcflush(filestream, TCIFLUSH);
+  tcsetattr(filestream, TCSANOW, &options);
+  return filestream;
 }
 
 int write_uart(int filestream, unsigned char code, int send_data) {
@@ -32,7 +35,7 @@ int write_uart(int filestream, unsigned char code, int send_data) {
     function_code = 0x16;
   }
   unsigned char package[7] = {0x01, function_code, code, 0x09,
-                              0x09, 0x08,          0x01};
+                              0x09, 0x08, 0x01};
   short crc = calcula_CRC(package, 7);
   unsigned char msg[9];
   memcpy(msg, &package, 7);
@@ -42,9 +45,9 @@ int write_uart(int filestream, unsigned char code, int send_data) {
   return count;
 }
 
-Interface_number_value read_uart(int filestream, unsigned char code) {
+Number_type read_uart(int filestream, unsigned char code) {
   unsigned char buffer[20];
-  Interface_number_value number = {0, 0};
+  Number_type number = {-1, -1.0};
   int count = read(filestream, buffer, 20);
   if (!count) {
     printf("Nenhum dado foi recebido\n");
@@ -56,12 +59,12 @@ Interface_number_value read_uart(int filestream, unsigned char code) {
       memcpy(&number.int_value, &buffer[3], sizeof(int));
     else
       memcpy(&number.float_value, &buffer[3], sizeof(float));
-    printf("%d - %f\n", number.int_value, number.float_value);
     return number;
   }
+  return number;
 }
 
-void close_uart(int filestream) { 
+void close_uart(int filestream) {
   printf("Conexão UART finalizada\n");
-  close(filestream); 
+  close(filestream);
 }

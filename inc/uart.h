@@ -4,7 +4,8 @@
 #include "uart_defs.h"
 
 int connect_uart();
-int write_uart(int filestream, unsigned char code, int send_data);
+void write_uart_get(int filestream, unsigned char code);
+void write_uart_send(int filestream, int value);
 Number_type read_uart(int filestream, unsigned char code);
 void close_uart(int filestream);
 

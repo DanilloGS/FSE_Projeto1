@@ -18,16 +18,14 @@
 
 #define ENABLE 0b00000100
 
-void lcd_init(void);
-void lcd_main(float tempI, float tempR, float tempE);
-void lcd_byte(int bits, int mode);
-void lcd_toggle_enable(int bits);
+void connect_display(void);
+void print_display(float tempI, float tempR, float tempE);
+void display_byte(int bits, int mode);
+void display_toggle_enable(int bits);
 
 // added by Lewis
-void typeInt(int i);
 void typeFloat(float myFloat);
-void lcdLoc(int line);  //move cursor
+void displayLoc(int line);  //move cursor
 void typeln(const char *s);
-void typeChar(char val);
 
 #endif

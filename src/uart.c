@@ -29,20 +29,33 @@ int connect_uart() {
   return filestream;
 }
 
-int write_uart(int filestream, unsigned char code, int send_data) {
-  unsigned char function_code = 0x23;
-  if (send_data) {
-    function_code = 0x16;
-  }
-  unsigned char package[7] = {0x01, function_code, code, 0x09,
+void write_uart_get(int filestream, unsigned char code) {
+  unsigned char package[7] = {0x01, 0x23, code, 0x09,
                               0x09, 0x08, 0x01};
   short crc = calcula_CRC(package, 7);
   unsigned char msg[9];
   memcpy(msg, &package, 7);
   memcpy(&msg[7], &crc, 2);
   int count = write(filestream, &msg[0], 9);
+  if(count < 0){
+    printf("Ocorreu um erro na comunicação com o UART\n");
+  }
   sleep(1);
-  return count;
+}
+
+void write_uart_send(int filestream, int control_signal) {
+  unsigned char package[7] = {0x01, 0x16, SEND_SIGNAL, 0x09,
+                              0x09, 0x08, 0x01};
+  unsigned char msg[13];
+  memcpy(msg, &package, 7);
+  memcpy(&msg[7], &control_signal, 4);
+  short crc = calcula_CRC(msg, 11);
+  memcpy(&msg[11], &crc, 2);
+  int count = write(filestream, &msg[0], 13);
+  if (count < 0) {
+    printf("Ocorreu um erro na comunicação com o UART\n");
+  }
+  sleep(1);
 }
 
 Number_type read_uart(int filestream, unsigned char code) {

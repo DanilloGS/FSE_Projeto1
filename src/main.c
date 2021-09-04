@@ -20,7 +20,7 @@ struct bme280_dev bme_connection;
 int uart_filesystem, key_gpio = 1;
 
 void shutdown_program() {
-  // system("clear");
+  system("clear");
   printf("Programa encerrado\n");
   turn_resistance_off();
   turn_fan_off();
@@ -133,6 +133,7 @@ void menu() {
       use_terminal = true;
       break;
     case 2:
+      getchar();
       system("clear");
       write_uart_get(uart_filesystem, GET_KEY_VALUE);
       key = read_uart(uart_filesystem, GET_KEY_VALUE).int_value;
@@ -142,7 +143,6 @@ void menu() {
       printf("\nQuando a chave == 1:\n");
       printf("\tIniciar rotina PID\n");
       printf("\nPrecione Enter para continuar\n");
-      getchar();
       char enter = 0;
       while (enter != '\r' && enter != '\n') {
         enter = getchar();

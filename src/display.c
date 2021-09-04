@@ -9,7 +9,6 @@ void print_display(float TI,float TR, float TE)   {
   fd = wiringPiI2CSetup(I2C_ADDR);
 
   connect_display(); // setup LCD
-  ClrDisplay(); // defaults LINE1
   displayLoc(LINE1);
   typeln("TI");
   typeFloat(TI);

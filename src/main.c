@@ -14,52 +14,50 @@
 
 #define true 1
 #define false 0
-int continue_measurement = true;
 
+int use_terminal = false;
 struct bme280_dev bme_connection;
-int uart_filesystem;
-
-void exit_program(int SIGNAL) {
-  switch (SIGNAL) {
-    case SIGINT:
-      shutdown_program();
-      break;
-    case SIGTSTP:
-      break;
-    default:
-      break;
-  }
-}
+int uart_filesystem, key_gpio = 1;
 
 void shutdown_program() {
-  printf("Encerrando programa\n");
+  // system("clear");
+  printf("Programa encerrado\n");
   turn_resistance_off();
   turn_fan_off();
   close_uart(uart_filesystem);
   exit(0);
 }
 
-void stop_measurement() {
-  continue_measurement = false;
+void toggle_routine() {
+  if (use_terminal) {
+    if (key_gpio == 1) {
+      key_gpio = 0;
+    } else
+      key_gpio = 1;
+  }
+  else 
+    printf("\nComando inválido para opção chave, reinicie o programa\n");
 }
 
-void on_off_routine() {
+void on_off_routine(int key) {
+  system("clear");
   float hysteresis, TI, TR, TE;
   int value_to_send = 0;
-  printf("Defina uma Histerese\n");
+  printf("\n================== Iniciada rotina ON/OFF ==================\n");
+  printf("\nDefina uma Histerese: ");
   scanf("%f", &hysteresis);
-  while (continue_measurement) {
+  do {
     write_uart_get(uart_filesystem, GET_INTERNAL_TEMP);
     TI = read_uart(uart_filesystem, GET_INTERNAL_TEMP).float_value;
-
     write_uart_get(uart_filesystem, GET_POTENTIOMETER);
     TR = read_uart(uart_filesystem, GET_POTENTIOMETER).float_value;
-
     TE = get_current_temperature(&bme_connection);
+    printf("\tTI: %.2f⁰C - TR: %.2f⁰C - TE: %.2f⁰C\n", TI, TR, TE);
+    print_display(TI, TR, TE);
 
     if (TR - hysteresis >= TI) {
-      turn_fan_off();
       turn_resistance_on(100);
+      turn_fan_off();
       value_to_send = 100;
     } else if (TR + hysteresis <= TI) {
       turn_fan_on(100);
@@ -67,16 +65,24 @@ void on_off_routine() {
       value_to_send = -100;
     }
 
-    print_display(TI, TR, TE);
+    if (!use_terminal) {
+      write_uart_get(uart_filesystem, GET_KEY_VALUE);
+      key_gpio = read_uart(uart_filesystem, GET_KEY_VALUE).int_value;
+    }
+
     write_uart_send(uart_filesystem, value_to_send);
-  }
+  } while (key_gpio == key);
+  printf("============================================================\n");
+  pid_routine(key_gpio);
 }
 
-void pid_routine() {
+void pid_routine(int key) {
+  system("clear");
   float hysteresis, TI, TR, TE;
   int value_to_send = 0;
+  printf("\n================== Iniciada rotina PID ==================\n");
   pid_setup_constants(5, 1, 5);
-  while (continue_measurement) {
+  do {
     write_uart_get(uart_filesystem, GET_INTERNAL_TEMP);
     TI = read_uart(uart_filesystem, GET_INTERNAL_TEMP).float_value;
 
@@ -90,33 +96,18 @@ void pid_routine() {
     pid_update_reference(TR);
 
     TE = get_current_temperature(&bme_connection);
-
+    printf("\tTI: %.2f⁰C - TR: %.2f⁰C - TE: %.2f⁰C\n", TI, TR, TE);
     print_display(TI, TR, TE);
-    write_uart_send(uart_filesystem, value_to_send);
-  }
-}
 
-void terminal_routine() {
-  int option;
-  printf(
-      "Como deseja controlar a temperatura?\n"
-      "\t1) On-Off\n"
-      "\t2) PID\n");
-  scanf("%d", &option);
-  switch (option) {
-    case 1:
-      on_off_routine();
-      break;
-    case 2:
-      pid_routine();
-      break;
-    case 3:
-      shutdown_program();
-      break;
-    default:
-      menu();
-      break;
-  }
+    if (!use_terminal) {
+      write_uart_get(uart_filesystem, GET_KEY_VALUE);
+      key_gpio = read_uart(uart_filesystem, GET_KEY_VALUE).int_value;
+    }
+
+    write_uart_send(uart_filesystem, value_to_send);
+  } while (key_gpio == key);
+  printf("============================================================\n");
+  on_off_routine(key_gpio);
 }
 
 void init() {
@@ -126,34 +117,61 @@ void init() {
   connect_display();
   bme_connection = connect_bme();
   uart_filesystem = connect_uart();
+  system("clear");
 }
 
 void menu() {
-  init();
-  int option;
-  printf(
-      "Como deseja definir a temperatura de referência do sistema?\n"
-      "\t1) Terminal\n"
-      "\t2) Potenciômetro\n");
+  int option, key;
+  printf("Como deseja controlar o programa?\n\t1) Terminal\n\t2) Chave\n");
   scanf("%d", &option);
   switch (option) {
     case 1:
-      terminal_routine();
+      system("clear");
+      printf("Selecione uma rotina:\n\t1) On/Off\n\t2) PID\n");
+      scanf("%d", &key);
+      key--;
+      use_terminal = true;
       break;
     case 2:
-      // mechanic_routine();
-      break;
-    case 3:
-      shutdown_program();
+      system("clear");
+      write_uart_get(uart_filesystem, GET_KEY_VALUE);
+      key = read_uart(uart_filesystem, GET_KEY_VALUE).int_value;
+      printf("O valor inicial da chave é: %d\n", key);
+      printf("\nQuando a chave == 0:\n");
+      printf("\tIniciar rotina ON/OFF\n");
+      printf("\nQuando a chave == 1:\n");
+      printf("\tIniciar rotina PID\n");
+      printf("\nPrecione Enter para continuar\n");
+      getchar();
+      char enter = 0;
+      while (enter != '\r' && enter != '\n') {
+        enter = getchar();
+      }
       break;
     default:
+      system("clear");
+      printf("Opção invalida\n");
       menu();
       break;
   }
+  if (key == 0)
+    on_off_routine(key);
+  else
+    pid_routine(key);
 }
 
 int main() {
-  signal(SIGINT, exit_program);
+  init();
+  signal(SIGINT, shutdown_program);
+  signal(SIGQUIT, toggle_routine);
+  printf(
+      "\n"
+      "██████  ██████   ██████       ██ ███████ ████████  ██████       ██ \n"
+      "██   ██ ██   ██ ██    ██      ██ ██         ██    ██    ██     ███ \n"
+      "██████  ██████  ██    ██      ██ █████      ██    ██    ██      ██ \n"
+      "██      ██   ██ ██    ██ ██   ██ ██         ██    ██    ██      ██ \n"
+      "██      ██   ██  ██████   █████  ███████    ██     ██████       ██ \n\n");
+
   menu();
   return 0;
 }

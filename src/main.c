@@ -7,6 +7,7 @@
 
 #include "bme280.h"
 #include "display.h"
+#include "gpio.h"
 #include "pid.h"
 #include "thermometer.h"
 #include "uart.h"
@@ -14,7 +15,6 @@
 #define true 1
 #define false 0
 int continue_measurement = true;
-// #include "gpio.h"
 
 struct bme280_dev bme_connection;
 int uart_filesystem;
@@ -72,6 +72,30 @@ void on_off_routine() {
   }
 }
 
+void pid_routine() {
+  float hysteresis, TI, TR, TE;
+  int value_to_send = 0;
+  pid_setup_constants(5, 1, 5);
+  while (continue_measurement) {
+    write_uart_get(uart_filesystem, GET_INTERNAL_TEMP);
+    TI = read_uart(uart_filesystem, GET_INTERNAL_TEMP).float_value;
+
+    double value_to_send = pid_control(TI);
+
+    pwm_control(value_to_send);
+
+    write_uart_get(uart_filesystem, GET_POTENTIOMETER);
+    TR = read_uart(uart_filesystem, GET_POTENTIOMETER).float_value;
+
+    pid_update_reference(TR);
+
+    TE = get_current_temperature(&bme_connection);
+
+    print_display(TI, TR, TE);
+    write_uart_send(uart_filesystem, value_to_send);
+  }
+}
+
 void terminal_routine() {
   int option;
   printf(
@@ -84,7 +108,7 @@ void terminal_routine() {
       on_off_routine();
       break;
     case 2:
-      // pid_routine();
+      pid_routine();
       break;
     case 3:
       shutdown_program();
@@ -99,7 +123,6 @@ void init() {
   wiringPiSetup();
   turn_resistance_off();
   turn_fan_off();
-  pid_setup_constants(5, 1, 5);
   connect_display();
   bme_connection = connect_bme();
   uart_filesystem = connect_uart();
@@ -131,7 +154,6 @@ void menu() {
 
 int main() {
   signal(SIGINT, exit_program);
-  signal(SIGTSTP, exit_program);
   menu();
   return 0;
 }
